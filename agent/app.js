@@ -15,6 +15,14 @@ var realFs = require("fs");
 var gracefulFs = require("graceful-fs");
 gracefulFs.gracefulify(realFs);
 
+//disable console output for linux to avoid crashes
+if(process.platform != "win32") {
+    console.log = function(){};
+    console.info = function(){};
+    console.error = function(){};
+    console.warn = function(){};
+}
+
 fs.writeFileSync(__dirname+"/agent.pid",process.pid);
 
 
@@ -45,6 +53,8 @@ app.post('/uploadfiles',uploadfiles.uploadFiles);
 app.post('/recordimage',imageautomation.recordImage);
 app.post('/startrecording',recorder.record);
 app.post('/idesync',idesync.syncToRedwoodHQ);
+
+require("fs").writeFileSync(__dirname+"/app.pid",process.pid);
 
 app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
 app.use(express.errorHandler());

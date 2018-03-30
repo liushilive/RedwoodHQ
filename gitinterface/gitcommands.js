@@ -169,6 +169,25 @@ exports.attachHEAD = function(workdir,callback){
 
 };
 
+exports.checkoutFileFromHead= function(workdir,name,callback){
+    var git  = spawn(path.resolve(__dirname,'../vendor/Git/bin/git'),['checkout','HEAD^',name],{cwd: workdir,timeout:300000});
+    var cliData = "";
+
+    git.stdout.on('data', function (data) {
+        cliData = cliData + data.toString();
+    });
+
+    git.stderr.on('data', function (data) {
+        cliData = cliData + data.toString();
+        common.logger.error('status stderr: ' + data);
+    });
+
+    git.on('close', function (code) {
+        callback(cliData);
+    });
+
+};
+
 exports.pointBranchToMaster= function(workdir,name,callback){
     var git  = spawn(path.resolve(__dirname,'../vendor/Git/bin/git'),['checkout','-B','master',name],{cwd: workdir,timeout:300000});
     var cliData = "";
@@ -496,12 +515,19 @@ exports.commitsSinceDate = function(workdir,date,callback){
 };
 
 exports.filesModifiedSinceDate = function(workdir,date,callback){
-    var git  = spawn(path.resolve(__dirname,'../vendor/Git/usr/bin/find'),['.','-not','-path',"'./build/*'",'-newermt',date,'-type','f'],{cwd: workdir,timeout:300000});
+
+    var git;
+    if(process.platform == "win32"){
+        git = spawn(path.resolve(__dirname,'../vendor/Git/usr/bin/find'),['.','-not','-path',"'./build/*'",'-newermt',date,'-type','f'],{cwd: workdir,timeout:300000});
+    }
+    else{
+        git = spawn('find',['.','-not','-path',"'./build/*'",'-newermt',date,'-type','f'],{cwd: workdir,timeout:300000});
+    }
     var cliData = "";
 
     git.stdout.on('data', function (data) {
         cliData = cliData + data.toString();
-        console.log(cliData);
+        //console.log(cliData);
     });
 
     git.stderr.on('data', function (data) {
@@ -707,7 +733,14 @@ exports.keyScan = function(workdir,hostname,callback){
     else{
         args.push(hostname)
     }
-    var git  = spawn(path.resolve(__dirname,'../vendor/Git/usr/bin/ssh-keyscan'),args,{cwd: workdir,env:{HOME:workdir},timeout:300000});
+    var git;
+    if(process.platform == "win32"){
+        git = spawn(path.resolve(__dirname,'../vendor/Git/usr/bin/ssh-keyscan'),args,{cwd: workdir,env:{HOME:workdir},timeout:300000});
+    }
+    else{
+        git = spawn('ssh-keyscan',args,{cwd: workdir,env:{HOME:workdir},timeout:300000});
+    }
+
     var cliOut = "";
 
     git.stdout.on('data', function (data) {
@@ -725,7 +758,13 @@ exports.keyScan = function(workdir,hostname,callback){
 };
 
 exports.keyGen = function(workdir,label,callback){
-    var git  = spawn(path.resolve(__dirname,'../vendor/Git/usr/bin/ssh-keygen'),["-C",label,"-t","rsa","-N","","-f",".ssh/id_rsa"],{cwd: workdir,env:{HOME:workdir},timeout:300000});
+    var git;
+    if(process.platform == "win32"){
+        git = spawn(path.resolve(__dirname,'../vendor/Git/usr/bin/ssh-keygen'),["-C",label,"-t","rsa","-N","","-f",".ssh/id_rsa"],{cwd: workdir,env:{HOME:workdir},timeout:300000});
+    }
+    else{
+        git = spawn('ssh-keygen',["-C",label,"-t","rsa","-N","","-f",".ssh/id_rsa"],{cwd: workdir,env:{HOME:workdir},timeout:300000});
+    }
 
     git.stdout.on('data', function (data) {
         common.logger.info('stdout: ' + data);
@@ -782,14 +821,15 @@ exports.pullRemote = function(workdir,repoName,branch,callback){
     var git  = spawn(path.resolve(__dirname,'../vendor/Git/bin/git'),['pull','--no-edit',repoName,branch],{env:{HOME:workdir},cwd: workdir,timeout:300000});
 
     var cliOut = "";
+    var cliError = "";
     git.stdout.on('data', function (data) {
         cliOut = cliOut + data.toString();
         common.logger.info('stdout: ' + data);
     });
 
     git.stderr.on('data', function (data) {
-        cliOut = cliOut + data.toString();
-        if(cliOut.indexOf("Couldn't find remote ref") != -1){
+        cliError = cliError + data.toString();
+        if(cliError.indexOf("Couldn't find remote ref") != -1){
             //git.stdin.write('y\n');
 
         }
@@ -797,28 +837,29 @@ exports.pullRemote = function(workdir,repoName,branch,callback){
     });
 
     git.on('close', function (code) {
-        callback(cliOut);
+        callback(cliOut,cliError);
     });
 };
 
 exports.pull = function(workdir,callback){
     common.logger.info("pull");
     //var git  = spawn(path.resolve(__dirname,'../vendor/Git/bin/git'),['pull','--rebase','origin','master'],{env:{GIT_EDITOR:'"'+process.execPath+'" "'+path.resolve(__dirname,'../gitinterface/echoEdit.js').replace(/\\/g, '/')+'"'},cwd: workdir,timeout:300000});
-    var git  = spawn(path.resolve(__dirname,'../vendor/Git/bin/git'),['pull','origin','master'],{env:{GIT_EDITOR:'"'+process.execPath+'" "'+path.resolve(__dirname,'../gitinterface/echoEdit.js').replace(/\\/g, '/')+'"'},cwd: workdir,timeout:300000});
+    var git  = spawn(path.resolve(__dirname,'../vendor/Git/bin/git'),['pull','origin','master'],{env:{HOME:process.env.HOME,GIT_EDITOR:'"'+process.execPath+'" "'+path.resolve(__dirname,'../gitinterface/echoEdit.js').replace(/\\/g, '/')+'"'},cwd: workdir,timeout:300000});
 
     var cliOut = "";
+    var cliError = "";
     git.stdout.on('data', function (data) {
         cliOut = cliOut + data.toString();
         common.logger.info('stdout: ' + data);
     });
 
     git.stderr.on('data', function (data) {
-        cliOut = cliOut + data.toString();
+        cliError = cliError + data.toString();
         common.logger.error('pull stderr: ' + data);
     });
 
     git.on('close', function (code) {
-        callback(cliOut);
+        callback(cliOut,cliError);
     });
 };
 
@@ -840,7 +881,13 @@ exports.clone = function(workdir,dirToClone,callback){
 };
 
 exports.copyFiles = function(workdir,file,dest,callback){
-    var git  = spawn(path.resolve(__dirname,'../vendor/Git/bin/cp.exe'),['-R',file,dest],{cwd: workdir,timeout:300000});
+    var git;
+    if(process.platform == "win32"){
+        git = spawn(path.resolve(__dirname,'../vendor/Git/bin/cp.exe'),['-R',file,dest],{cwd: workdir,timeout:300000});
+    }
+    else{
+        git = spawn('cp',['-R',file,dest],{cwd: workdir,timeout:300000});
+    }
 
     git.stdout.on('data', function (data) {
         common.logger.info('stdout: ' + data.toString());
@@ -934,8 +981,13 @@ exports.rename = function(workdir,file,newName,callback){
 
 exports.deleteFiles = function(workdir,file,callback){
     //var git  = spawn(path.resolve(__dirname,'../vendor/Git/bin/git.exe'),['commit','-a','-m','files/file removed'],{cwd: workdir,timeout:300000});
-    var git = null;
-    git  = spawn(path.resolve(__dirname,'../vendor/Git/usr/bin/rm'),['-R',file],{cwd: workdir,timeout:300000});
+    var git;
+    if(process.platform == "win32"){
+        git = spawn(path.resolve(__dirname,'../vendor/Git/usr/bin/rm'),['-R',file],{cwd: workdir,timeout:300000});
+    }
+    else{
+        git = spawn('rm',['-R',file],{cwd: workdir,timeout:300000});
+    }
 
     git.stdout.on('data', function (data) {
         common.logger.info('stdout: ' + data);

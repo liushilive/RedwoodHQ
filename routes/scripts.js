@@ -308,27 +308,81 @@ exports.scriptsPull = function(req,res) {
 
         if(index != -1){
             var n2 = cliOut.indexOf("Please, commit");
-            var conflictingFiles = cliOut.substring(index+74,n2).split("\n");
-            conflictingFiles.pop();
-            var count = 0;
-            conflictingFiles.forEach(function(file){
-                git.commit(rootDir + req.cookies.project + "/" + req.cookies.username,file,"merge commit",function(){
-                    count++;
-                    if(count == conflictingFiles.length){
-                        if(remote == true){
-                            //git.pullRemote(rootDir + req.cookies.project + "/" + req.cookies.username,'remoteRepo', req.cookies.username,function (cliOut) {
-                            git.pullRemote(rootDir + req.cookies.project + "/" + req.cookies.username,'remoteRepo', "master",function (cliOut) {
-                                callback(cliOut);
-                            });
+            if (n2 != -1){
+                var conflictingFiles = cliOut.substring(index+74,n2).split("\n");
+                conflictingFiles.pop();
+                var count = 0;
+                conflictingFiles.forEach(function(file){
+                    git.commit(rootDir + req.cookies.project + "/" + req.cookies.username,file,"merge commit",function(){
+                        count++;
+                        if(count == conflictingFiles.length){
+                            if(remote == true){
+                                //git.pullRemote(rootDir + req.cookies.project + "/" + req.cookies.username,'remoteRepo', req.cookies.username,function (cliOut) {
+                                git.pullRemote(rootDir + req.cookies.project + "/" + req.cookies.username,'remoteRepo', "master",function (cliOut,error) {
+                                    var index = error.indexOf("Your local changes to the following files would be overwritten by merge:\n");
+
+                                    if(index != -1){
+                                        handleMerges2(error,remote,function(cliOut){
+                                            callback(cliOut);
+                                        })
+                                    }
+                                    else{
+                                        callback(cliOut);
+                                    }
+                                });
+                            }
+                            else{
+                                git.pull(rootDir + req.cookies.project + "/" + req.cookies.username,function(cliOut,error){
+                                    var index = error.indexOf("Your local changes to the following files would be overwritten by merge:\n");
+
+                                    if(index != -1){
+                                        handleMerges2(error,remote,function(cliOut){
+                                            callback(cliOut);
+                                        })
+                                    }
+                                    else{
+                                        callback(cliOut);
+                                    }
+                                })
+                            }
                         }
-                        else{
-                            git.pull(rootDir + req.cookies.project + "/" + req.cookies.username,function(cliOut){
-                                callback(cliOut);
-                            })
-                        }
-                    }
+                    });
                 })
-            })
+            }
+        }
+        else{
+            callback(cliOut);
+        }
+    };
+
+    var handleMerges2 = function(cliOut,remote,callback){
+        var index = cliOut.indexOf("Your local changes to the following files would be overwritten by merge:\n");
+
+        if(index != -1){
+            var n2 = cliOut.indexOf("Please, commit");
+            if (n2 != -1){
+                var conflictingFiles = cliOut.substring(index+74,n2).split("\n");
+                conflictingFiles.pop();
+                var count = 0;
+                conflictingFiles.forEach(function(file){
+                    git.checkoutFileFromHead(rootDir + req.cookies.project + "/" + req.cookies.username,file,function(cliOut,error){
+                        count++;
+                        if(count == conflictingFiles.length){
+                            if(remote == true){
+                                //git.pullRemote(rootDir + req.cookies.project + "/" + req.cookies.username,'remoteRepo', req.cookies.username,function (cliOut) {
+                                git.pullRemote(rootDir + req.cookies.project + "/" + req.cookies.username,'remoteRepo', "master",function (cliOut,error) {
+                                    callback(cliOut);
+                                });
+                            }
+                            else{
+                                git.pull(rootDir + req.cookies.project + "/" + req.cookies.username,function(cliOut,error){
+                                    callback(cliOut);
+                                })
+                            }
+                        }
+                    });
+                })
+            }
         }
         else{
             callback(cliOut);
@@ -350,9 +404,9 @@ exports.scriptsPull = function(req,res) {
                     if(remote == true){
                         //git.createBranch(rootDir + req.cookies.project + "/" + req.cookies.username,req.cookies.username,function(){
                             //git.pullRemote(rootDir + req.cookies.project + "/" + req.cookies.username,'remoteRepo', req.cookies.username,function (cliOut) {
-                            git.pullRemote(rootDir + req.cookies.project + "/" + req.cookies.username,'remoteRepo', 'master',function (cliOut) {
+                            git.pullRemote(rootDir + req.cookies.project + "/" + req.cookies.username,'remoteRepo', 'master',function (cliOut,error) {
                                 //git.pushRemote(rootDir + req.cookies.project + "/" + req.cookies.username,"remoteRepo",req.cookies.username,function(){
-                                    handleMerges(cliOut,true,function(cliOut){
+                                    handleMerges(error,true,function(cliOut){
                                         handleConflictsAndPip(cliOut);
                                     });
                                 //})
@@ -360,8 +414,8 @@ exports.scriptsPull = function(req,res) {
                         //})
                     }
                     else{
-                        git.pull(rootDir + req.cookies.project + "/" + req.cookies.username, function (cliOut) {
-                            handleMerges(cliOut,false,function(cliOut){
+                        git.pull(rootDir + req.cookies.project + "/" + req.cookies.username, function (cliOut,error) {
+                            handleMerges(error,false,function(cliOut){
                                 handleConflictsAndPip(cliOut);
                             });
                             //git.gitFetch(rootDir + req.cookies.project + "/" + req.cookies.username, function () {
@@ -645,13 +699,13 @@ exports.CreateNewProject = function(projectName,language,template,callback){
 
         git.initBare(masterBranch,function(){
             git.clone(adminBranch,masterBranch,function(){
-                fs.writeFile(newProjectPath + "/admin/.gitignore","build\r\nPythonWorkDir\r\n**/*.pyc\r\n**/__init__.py\r\n.ssh",function(){});
+                fs.writeFile(newProjectPath + "/admin/.gitignore","build\r\nPythonWorkDir\r\n**/*.pyc\r\n.ssh/*",function(){});
+                //fs.writeFile(newProjectPath + "/admin/.gitignore","build\r\nPythonWorkDir\r\n**/*.pyc\r\n**/__init__.py\r\n.ssh/*",function(){});
                 SetupPython(adminBranch);
                 files.forEach(function(file,index,array){
                     var destName = file.replace(templatePath,"");
                     destName = adminBranch+destName;
                     //console.log(destName);
-
                     if (fs.statSync(file).isDirectory()){
                         fs.mkdirSync(destName);
                     }
@@ -668,24 +722,36 @@ exports.CreateNewProject = function(projectName,language,template,callback){
                     }
                 });
 
+                if(fs.existsSync(newProjectPath + "/admin/src") == false){
+                    fs.mkdirSync(newProjectPath + "/admin/src");
+                }
+                if(fs.existsSync(newProjectPath + "/admin/" +"bin") == false){
+                    fs.mkdirSync(newProjectPath + "/admin/" +"bin");
+                }
+
                 git.add(adminBranch,".",function(){
                     git.commit(adminBranch,"","new project",function(){
                         git.push(adminBranch,function(){
                             users.getAllUsers(function(users){
                                 console.log('--eval var projectName="'+projectName+'" '+path.resolve(__dirname,"../project_templates/"+template+".js"));
-                                var mongoScript = spawn(path.resolve(__dirname,'../vendor/MongoDB/bin/mongo'),['--eval','var projectName="'+projectName+'"',path.resolve(__dirname,"../project_templates/"+template+".js")],{cwd: path.resolve(__dirname,'../vendor/MongoDB/bin'),timeout:300000});
-                                //var mongoScript = spawn(path.resolve(__dirname,'../vendor/MongoDB/bin/mongo.exe'),['--eval','localhost:27017/automationframework','var projectName="'+projectName+'"',path.resolve(__dirname,"../project_templates/"+template+".js")],{cwd: path.resolve(__dirname,'../vendor/MongoDB/bin'),timeout:300000});
-                                mongoScript.stdout.on('data', function (data) {
-                                    common.logger.info(data.toString());
-                                });
+                                if(fs.existsSync(path.resolve(__dirname,"../project_templates/"+template+".js"))){
+                                    var mongoScript = spawn(path.resolve(__dirname,'../vendor/MongoDB/bin/mongo'),['--eval','var projectName="'+projectName+'"',path.resolve(__dirname,"../project_templates/"+template+".js")],{cwd: path.resolve(__dirname,'../vendor/MongoDB/bin'),timeout:300000});
+                                    //var mongoScript = spawn(path.resolve(__dirname,'../vendor/MongoDB/bin/mongo.exe'),['--eval','localhost:27017/automationframework','var projectName="'+projectName+'"',path.resolve(__dirname,"../project_templates/"+template+".js")],{cwd: path.resolve(__dirname,'../vendor/MongoDB/bin'),timeout:300000});
+                                    mongoScript.stdout.on('data', function (data) {
+                                        common.logger.info(data.toString());
+                                    });
 
-                                mongoScript.stderr.on('data', function (data) {
-                                    common.logger.error('stderr: ' + data.toString());
-                                });
+                                    mongoScript.stderr.on('data', function (data) {
+                                        common.logger.error('stderr: ' + data.toString());
+                                    });
 
-                                mongoScript.on('exit', function (code) {
+                                    mongoScript.on('exit', function (code) {
+                                        callback();
+                                    });
+                                }
+                                else{
                                     callback();
-                                });
+                                }
                                 users.forEach(function(user){
                                     if (user.username !== "admin"){
                                         fs.mkdirSync(newProjectPath + "/" + user.username);
@@ -698,7 +764,8 @@ exports.CreateNewProject = function(projectName,language,template,callback){
                                                 fs.mkdirSync(newProjectPath + "/" + user.username + "/" +"bin");
                                             }
                                             git.setGitUser(newProjectPath + "/" + user.username,user.username,user.email);
-                                            fs.writeFile(newProjectPath + "/" + user.username+"/.gitignore","build\r\nPythonWorkDir\r\n**/*.pyc\r\n**/__init__.py\r\n.ssh",function(){
+                                            fs.writeFile(newProjectPath + "/" + user.username+"/.gitignore","build\r\nPythonWorkDir\r\n**/*.pyc\r\n.ssh/*",function(){
+                                            //fs.writeFile(newProjectPath + "/" + user.username+"/.gitignore","build\r\nPythonWorkDir\r\n**/*.pyc\r\n**/__init__.py\r\n.ssh/*",function(){
                                                 git.addAll(newProjectPath + "/" + user.username,function(){
                                                     git.commitAll(newProjectPath + "/" + user.username,function(){
                                                         git.push(newProjectPath + "/" + user.username,function(){})
@@ -706,6 +773,9 @@ exports.CreateNewProject = function(projectName,language,template,callback){
                                                 })
                                             });
                                         });
+                                    }
+                                    else{
+                                        git.setGitUser(newProjectPath + "/admin","admin","admin@admin.com");
                                     }
                                 });
                             });
@@ -723,18 +793,23 @@ exports.setupPython = function(userFolder,callback){SetupPython(userFolder,callb
 
 function SetupPython(userFolder,callback){
     var python;
-    if(process.platform == "win32"){
-        python = spawn("cmd.exe",["/K"]);
+    if(process.platform == "win32") {
+        python = spawn("cmd.exe", ["/K"]);
 
-        python.stdin.write("cd \""+path.resolve(__dirname,'../vendor/Python')+"\"\r\n");
+        python.stdin.write("cd \"" + path.resolve(__dirname, '../vendor/Python') + "\"\r\n");
         python.stdin.write("for %I in (.) do cd %~sI\r\n");
-        python.stdin.write('python Lib/site-packages/virtualenv.py "'+userFolder+ '/PythonWorkDir"\r\n');
+        python.stdin.write('python Lib/site-packages/virtualenv.py "' + userFolder + '/PythonWorkDir"\r\n');
         //python.stdin.end();
         //python.disconnect();
         //python  = python.stdin.write(path.resolve(__dirname,'../vendor/Python/Scripts/virtualenv.exe'),['PythonWorkDir'],{cwd: userFolder,timeout:300000});
     }
     else{
-        python  = spawn(path.resolve(__dirname,'../vendor/Python/python'),[path.resolve(__dirname,'../vendor/Python/Lib/site-packages/virtualenv.py'),'PythonWorkDir'],{cwd: userFolder,timeout:300000});
+        if(fs.existsSync("/usr/local/bin/virtualenv")){
+            python  = spawn('/usr/local/bin/virtualenv',['PythonWorkDir'],{cwd: userFolder,timeout:300000});
+        }
+        else{
+            python  = spawn('/usr/bin/virtualenv',['PythonWorkDir'],{cwd: userFolder,timeout:300000});
+        }
     }
     var cliData = "";
 
@@ -1045,10 +1120,10 @@ var walkDir = function(dir,filesInConflict,filesNotPushed, done) {
                         if (!--pending) done(null, results);
                         return;
                     }
-                    if (file.slice(-11) == "__init__.py"){
-                        if (!--pending) done(null, results);
-                        return;
-                    }
+                    //if (file.slice(-11) == "__init__.py"){
+                    //    if (!--pending) done(null, results);
+                    //    return;
+                    //}
                     results.push(result);
                     if (!--pending) done(null, results);
                 }

@@ -133,6 +133,7 @@ app.post('/uploadfilesdone',uploadFiles.uploadDone);
 //importAllTCs
 app.post('/importalltcs',importtcs.importAllTCs);
 app.post('/getallunittcs',importtcs.getAllUnitTests);
+app.post('/getallpythonunittcs',importtcs.getAllPythonTests);
 app.post('/importselectedtcs',importtcs.importSelectedTCs);
 
 //rununittest
@@ -193,6 +194,7 @@ app.get('/actions',auth.auth, actions.actionsGet);
 app.put('/actions/:id',auth.auth, actions.actionsPut);
 app.post('/actions',auth.auth, actions.actionsPost);
 app.del('/actions/:id',auth.auth, actions.actionsDelete);
+app.get('/action/:id',auth.auth, actions.getActionDetails);
 
 //actionTags
 app.get('/actiontags',auth.auth, actiontags.actionTagsGet);
@@ -203,6 +205,7 @@ app.get('/testcases',auth.auth, testcases.testcasesGet);
 app.put('/testcases/:id',auth.auth, testcases.testcasesPut);
 app.post('/testcases',auth.auth, testcases.testcasesPost);
 app.del('/testcases/:id',auth.auth, testcases.testcasesDelete);
+app.get('/testcase/:id',auth.auth, testcases.getTestCaseDetails);
 app.post('/testcasetocode',auth.auth, testcases.testCaseToCode);
 
 //testcaseTags
@@ -214,6 +217,7 @@ app.get('/executions',auth.auth, executions.executionsGet);
 app.put('/executions/:id',auth.auth, executions.executionsPut);
 app.post('/executions/:id',executions.executionsPost);
 app.del('/executions/:id',auth.auth, executions.executionsDelete);
+//app.get('/executionreport/:id',auth.auth, executions.generateExcelReport);
 
 //executionTags
 app.get('/executiontags',auth.auth, executionTags.executionTagsGet);
@@ -305,6 +309,14 @@ app.post('/fileupload',auth.auth, fileupload.upload);
 
 //methodFinder
 app.post('/methodFinder',auth.auth, methodFinder.methodFinderPost);
+
+//disable console output for linux to avoid crashes
+if(process.platform != "win32") {
+    console.log = function(){};
+    console.info = function(){};
+    console.error = function(){};
+    console.warn = function(){};
+}
 
 common.initLogger("server");
 common.parseConfig(function(){

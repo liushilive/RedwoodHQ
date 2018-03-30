@@ -162,11 +162,21 @@ var uploadAction = Ext.create('Ext.Action', {
 
 var importAllTCsAction = Ext.create('Ext.Action', {
     tooltip: "Import TestNG/Junit Test Cases.",
-    text:"Import Test Cases",
+    text:"Import TestNG/Junit Test Cases",
     itemId:"importAllTCs",
-    icon: 'images/import.png',
+    icon: 'images/fileTypeJava.png',
     handler: function(widget, event) {
         Redwood.app.getController("Scripts").onImportAllTCs();
+    }
+});
+
+var importAllPythonTCsAction = Ext.create('Ext.Action', {
+    tooltip: "Import Pytest Test Cases.",
+    text:"Import Pytest Test Cases",
+    itemId:"importAllPythonTCs",
+    icon: 'images/python.png',
+    handler: function(widget, event) {
+        Redwood.app.getController("Scripts").onImportAllPythonTCs();
     }
 });
 
@@ -504,7 +514,8 @@ var importTCButton = Ext.create('Ext.button.Split',{
     },
     menu: new Ext.menu.Menu({
         items: [
-            importAllTCsAction
+            importAllTCsAction,
+            importAllPythonTCsAction
         ]
     })
 });
@@ -550,7 +561,7 @@ var contextMenu = Ext.create('Ext.menu.Menu', {
             }
             var foundRootItem = false;
             selection.forEach(function(node){
-                if (node.parentNode.isRoot() == true){
+                if (node.parentNode && node.parentNode.isRoot() == true){
                     me.down("#renameMenu").setDisabled(true);
                     me.down("#deleteMenu").setDisabled(true);
                     me.down("#copyMenu").setDisabled(true);
@@ -831,7 +842,10 @@ Ext.define('Redwood.view.ScriptBrowser', {
                             });
                         },
                         beforeitemexpand: function(node){
-                            this.getSelectionModel().select(this.getRootNode().getChildAt(0));
+                            this.getSelectionModel().select(node);
+                        },
+                        beforeitemcollapse: function(node){
+                            this.getSelectionModel().select(node);
                         },
                         itemdblclick: function(me,record,item,index,evt,eOpts){
                             if (record.get("fileType") === "file"){
@@ -856,7 +870,7 @@ Ext.define('Redwood.view.ScriptBrowser', {
                             }
                             var foundRootItem = false;
                             selected.forEach(function(node){
-                                if (node.parentNode.isRoot()){
+                                if (node.parentNode && node.parentNode.isRoot()){
                                     copyAction.setDisabled(true);
                                     deleteScriptAction.setDisabled(true);
                                     if (node.get("fileType") === "libs"){
@@ -956,7 +970,8 @@ Ext.define('Redwood.view.ScriptBrowser', {
                 ideSyncButton,
                 //importTCButton,
                 "->",
-                importAllTCsAction,
+                importTCButton,
+                //importAllTCsAction,
                 "-",
                 findText,
                 findPrev,

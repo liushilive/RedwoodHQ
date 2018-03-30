@@ -342,7 +342,7 @@ Ext.define('Redwood.view.ActionView', {
                         itemId:"name",
                         anchor:'90%',
                         listeners:{
-                            change: function(field){
+                            change: function(){
                                 if (me.loadingData === false){
                                     me.markDirty();
                                 }
@@ -356,7 +356,7 @@ Ext.define('Redwood.view.ActionView', {
                         itemId:"description",
                         anchor:'90%',
                         listeners:{
-                            change: function(field){
+                            change: function(){
                                 if (me.loadingData === false){
                                     me.markDirty();
                                 }
@@ -434,7 +434,7 @@ Ext.define('Redwood.view.ActionView', {
                         removeOnDblClick:true,
                         itemId:"tag",
                         listeners:{
-                            change: function(field){
+                            change: function(){
                                 if (me.loadingData === false){
                                     me.markDirty();
                                 }
@@ -539,7 +539,7 @@ Ext.define('Redwood.view.ActionView', {
                 hidden: false,
                 width: 955,
                 listeners: {
-                    change: function(field){
+                    change: function(){
                         if (me.loadingData == false){
                             me.markDirty();
                         }
@@ -745,10 +745,10 @@ Ext.define('Redwood.view.ActionView', {
                             renderer: function(value,meta,record){
                                 //meta.tdCls = 'x-redwood-results-cell';
                                 if(record.$className == "Redwood.model.TestCases"){
-                                    return "<a style= 'color:font-weight:bold;blue;' href='javascript:openTestCase(&quot;"+ record.get("_id") +"&quot;,&quot;" + value + "&quot;)'>"+record.get("name")+" (Test Case)</a>"
+                                    return "<a style= 'color:font-weight:bold;blue;' href='javascript:openTestCase(&quot;"+ record.get("_id") +"&quot;)'>"+record.get("name")+" (Test Case)</a>"
                                 }
                                 else{
-                                    return "<a style= 'color:font-weight:bold;blue;' href='javascript:openAction(&quot;"+ record.get("_id") +"&quot;,&quot;" + value + "&quot;)'>"+record.get("name")+" (Action)</a>"
+                                    return "<a style= 'color:font-weight:bold;blue;' href='javascript:openAction(&quot;"+ record.get("_id") +"&quot;)'>"+record.get("name")+" (Action)</a>"
                                 }
                             }
                         }

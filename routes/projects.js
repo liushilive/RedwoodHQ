@@ -5,7 +5,7 @@ var path = require('path');
 var realtime = require("../routes/realtime");
 var app =  require('../common');
 var spawn = require('child_process').spawn;
-var ncp = require('ncp').ncp;
+var cpr = require('cpr').cpr;
 var git = require('../gitinterface/gitcommands');
 var rootDir = path.resolve(__dirname,"../public/automationscripts/")+"/";
 var ObjectID = require('mongodb').ObjectID;
@@ -102,6 +102,9 @@ function CreateProjects(data,emit,callback){
 }
 
 function CloneProjects(data,emit,callback){
+    if(fs.existsSync(path.resolve(__dirname,"../public/automationscripts/"+data.name))){
+        return;
+    }
     var toClone = data.toClone;
     delete data.toClone;
 
@@ -109,7 +112,7 @@ function CloneProjects(data,emit,callback){
     db.collection('projects', function(err, collection) {
         data._id = new ObjectID(data._id);
         collection.insert(data, {safe:true},function(err,returnData){
-            ncp(path.resolve(__dirname,"../public/automationscripts/"+toClone), path.resolve(__dirname,"../public/automationscripts/"+data.name), function (err) {
+            cpr(path.resolve(__dirname,"../public/automationscripts/"+toClone), path.resolve(__dirname,"../public/automationscripts/"+data.name), function (err) {
                 var pointOriginRepo = function(){
                     fs.readdir(path.resolve(__dirname,"../public/automationscripts/"+data.name),function(err, files){
                         files.forEach(function(file){
@@ -154,7 +157,14 @@ function CloneProjects(data,emit,callback){
                                                         return;
                                                     }
                                                     if(cloneData.afterState && cloneData.afterState != ""){
-                                                        cloneData.afterState = actionMapping[cloneData.afterState]
+                                                        if(Array.isArray(cloneData.afterState)){
+                                                            cloneData.afterState.forEach(function(step){
+                                                                step.actionid = actionMapping[step.actionid];
+                                                            });
+                                                        }
+                                                        else{
+                                                            cloneData.afterState = actionMapping[cloneData.afterState]
+                                                        }
                                                     }
                                                     if(cloneData.type == 'collection'){
                                                         cloneData.collection.forEach(function(step){
@@ -165,6 +175,15 @@ function CloneProjects(data,emit,callback){
                                                         delete cloneData._id;
                                                         cloneData.project = data.name;
                                                         cloneData.testcaseID = new ObjectID(testcaseMapping[cloneData.testcaseID.toString()]);
+                                                        collection.insert(cloneData, {safe:true},function(err,returnData){
+                                                        })
+                                                    }
+                                                    else if(name == 'testsets'){
+                                                        delete cloneData._id;
+                                                        cloneData.project = data.name;
+                                                        cloneData.testcases.forEach(function(testcase){
+                                                            testcase._id = new ObjectID(testcaseMapping[testcase._id]);
+                                                        });
                                                         collection.insert(cloneData, {safe:true},function(err,returnData){
                                                         })
                                                     }
@@ -180,6 +199,7 @@ function CloneProjects(data,emit,callback){
                                     };
                                     updateTestCaseCollections('testcases');
                                     updateTestCaseCollections('testcaseshistory');
+                                    updateTestCaseCollections('testsets');
                                     return;
                                 }
                                 var id = cloneData._id.toString();
@@ -242,7 +262,7 @@ function CloneProjects(data,emit,callback){
                 cloneCollection('variables');
                 cloneCollection('actionTags');
                 cloneCollection('testcaseTags');
-                cloneCollection('testsets');
+                //cloneCollection('testsets');
                 cloneCollection('variableTags');
                 pointOriginRepo();
 
@@ -333,7 +353,12 @@ function DeleteProjects(db,data,projectName,callback){
     });
 
     var projectPath = path.resolve(__dirname,"../public/automationscripts/"+projectName);
-    var delDir = spawn(path.resolve(__dirname,'../vendor/Git/usr/bin/rm'),['-rf',projectPath],{cwd: path.resolve(__dirname,"../public/automationscripts/"),timeout:300000});
+    if(process.platform == "win32"){
+        spawn(path.resolve(__dirname,'../vendor/Git/usr/bin/rm'),['-rf',projectPath],{cwd: path.resolve(__dirname,"../public/automationscripts/"),timeout:300000});
+    }
+    else{
+        spawn('rm',['-rf',projectPath],{cwd: path.resolve(__dirname,"../public/automationscripts/"),timeout:300000});
+    }
     //var delDir = spawn("rmdir",['/S','/Q',projectPath],{cwd: path.resolve(__dirname,"../public/automationscripts/"),timeout:300000});
     /*
     var toDelete = [];

@@ -1,6 +1,7 @@
 var realtime = require("./realtime");
 var executions = require("./executions");
 var ObjectID = require('mongodb').ObjectID;
+var elasticSearch = require("./elasticsearch");
 
 exports.testcasesPut = function(req, res){
     var app =  require('../common');
@@ -9,7 +10,9 @@ exports.testcasesPut = function(req, res){
     data._id = new ObjectID(data._id);
     data.project = req.cookies.project;
     data.user =  req.cookies.username;
+    data.lastModified = new Date();
     UpdateTestCases(app.getDB(),data,function(err){
+        elasticSearch.indexTestCase(data,"PUT");
         realtime.emitMessage("UpdateTestCases",data);
         res.contentType('json');
         res.json({
@@ -33,12 +36,25 @@ exports.testcasesGet = function(req, res){
     });
 };
 
+exports.getTestCaseDetails = function(req, res){
+    var app =  require('../common');
+    var id = new ObjectID(req.params.id);
+    GetTestCaseDetails(app.getDB(),{project:req.cookies.project,_id:id},function(data){
+        res.contentType('json');
+        res.json({
+            success: true,
+            testcase: data
+        });
+    });
+};
+
 exports.testcasesDelete = function(req, res){
     var app =  require('../common');
     var db = app.getDB();
     var id = new ObjectID(req.params.id);
     DeleteTestCases(app.getDB(),{_id: id},function(err){
         realtime.emitMessage("DeleteTestCases",{id: req.params.id});
+        elasticSearch.indexTestCase({_id:req.params.id},"DELETE");
         res.contentType('json');
         res.json({
             success: !err,
@@ -55,7 +71,10 @@ exports.testcasesPost = function(req, res){
     delete data._id;
     data.project = req.cookies.project;
     data.user =  req.cookies.username;
+    data.lastModified = new Date();
     CreateTestCases(app.getDB(),data,function(returnData){
+        returnData[0]._id = returnData[0]._id.toString();
+        elasticSearch.indexTestCase(returnData[0],"PUT");
         res.contentType('json');
         res.json({
             success: true,
@@ -447,13 +466,21 @@ function GetTestCases(db,query,callback){
     var testcases = [];
 
     db.collection('testcases', function(err, collection) {
-        collection.find(query, {}, function(err, cursor) {
+        collection.find(query, {_id:1,tag:1,name:1,tcData:1}, function(err, cursor) {
             cursor.each(function(err, action) {
                 if(action == null) {
                     callback(testcases);
                 }
                 testcases.push(action);
             });
+        })
+    })
+}
+
+function GetTestCaseDetails(db,query,callback){
+    db.collection('testcases', function(err, collection) {
+        collection.findOne(query, {}, function(err, testcase) {
+            callback(testcase);
         })
     })
 }
